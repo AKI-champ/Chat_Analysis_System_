@@ -4,4 +4,3 @@ streamlit
 urlextract
 wordcloud
 emoji
-collections
