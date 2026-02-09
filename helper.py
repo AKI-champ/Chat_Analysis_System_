@@ -7,86 +7,51 @@ import emoji
 extractor = URLExtract()
 
 
-# -------------------- BASIC STATS --------------------
 def fetch_stats(selected_user, df):
     if selected_user != "Overall":
         df = df[df["user"] == selected_user]
 
-    # Force message column to string (CRITICAL FIX)
     df["message"] = df["message"].astype(str)
 
     num_messages = df.shape[0]
 
-    words = []
-    links = []
+    words, links = [], []
+    for msg in df["message"]:
+        words.extend(msg.split())
+        links.extend(extractor.find_urls(msg))
 
-    for message in df["message"]:
-        words.extend(message.split())
-        links.extend(extractor.find_urls(message))
+    media_msgs = df[df["message"].str.contains("<Media omitted>", na=False)].shape[0]
 
-    media_messages = df[
-        df["message"].str.contains("<Media omitted>", na=False)
-    ].shape[0]
-
-    return num_messages, len(words), media_messages, len(links)
+    return num_messages, len(words), media_msgs, len(links)
 
 
-# -------------------- MOST ACTIVE USERS --------------------
 def chart(df):
-    user_counts = df["user"].value_counts().head()
-
-    percentage_df = (
-        (df["user"].value_counts(normalize=True) * 100)
-        .round(2)
-        .reset_index()
-    )
-    percentage_df.columns = ["Name", "Percentage"]
-
-    return user_counts, percentage_df
+    counts = df["user"].value_counts().head()
+    percent = (df["user"].value_counts(normalize=True) * 100).round(2).reset_index()
+    percent.columns = ["Name", "Percentage"]
+    return counts, percent
 
 
-# -------------------- WORD CLOUD --------------------
 def workcloud(selected_user, df):
     if selected_user != "Overall":
         df = df[df["user"] == selected_user]
 
-    df["message"] = df["message"].astype(str)
-
-    temp = df[~df["message"].str.contains("<Media omitted>", na=False)]
-
-    text = " ".join(temp["message"])
-
-    if not text.strip():
-        return WordCloud(background_color="white").generate("No Data")
-
-    wc = WordCloud(
-        width=600,
-        height=600,
-        background_color="white",
-        min_font_size=10
-    )
-
-    return wc.generate(text)
+    text = " ".join(df["message"].astype(str))
+    wc = WordCloud(width=600, height=600, background_color="white")
+    return wc.generate(text if text.strip() else "No Data")
 
 
-# -------------------- EMOJI ANALYSIS --------------------
 def emojies(selected_user, df):
     if selected_user != "Overall":
         df = df[df["user"] == selected_user]
 
-    df["message"] = df["message"].astype(str)
-
     emojis = []
-    for message in df["message"]:
-        emojis.extend([char for char in message if char in emoji.EMOJI_DATA])
+    for msg in df["message"].astype(str):
+        emojis.extend([c for c in msg if c in emoji.EMOJI_DATA])
 
-    return pd.DataFrame(
-        Counter(emojis).most_common(),
-        columns=["Emoji", "Count"]
-    )
+    return pd.DataFrame(Counter(emojis).most_common(), columns=["Emoji", "Count"])
 
 
-# -------------------- MONTHLY TIMELINE --------------------
 def monthly_timelines(selected_user, df):
     if selected_user != "Overall":
         df = df[df["user"] == selected_user]
@@ -99,11 +64,9 @@ def monthly_timelines(selected_user, df):
     )
 
     timeline["time"] = timeline["month"] + "-" + timeline["year"].astype(str)
-
     return timeline
 
 
-# -------------------- DAILY TIMELINE --------------------
 def dates_timelines(selected_user, df):
     if selected_user != "Overall":
         df = df[df["user"] == selected_user]
@@ -111,22 +74,16 @@ def dates_timelines(selected_user, df):
     return df.groupby("only_dates")["message"].count().reset_index()
 
 
-# -------------------- WEEKLY ACTIVITY --------------------
 def day_timelines(selected_user, df):
     if selected_user != "Overall":
         df = df[df["user"] == selected_user]
 
     order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-
-    day_df = df.groupby("day_name")["message"].count().reset_index()
-    day_df["day_name"] = pd.Categorical(
-        day_df["day_name"], categories=order, ordered=True
-    )
-
-    return day_df.sort_values("day_name")
+    df_day = df.groupby("day_name")["message"].count().reset_index()
+    df_day["day_name"] = pd.Categorical(df_day["day_name"], categories=order, ordered=True)
+    return df_day.sort_values("day_name")
 
 
-# -------------------- YEARLY ACTIVITY --------------------
 def year_timelines(selected_user, df):
     if selected_user != "Overall":
         df = df[df["user"] == selected_user]
