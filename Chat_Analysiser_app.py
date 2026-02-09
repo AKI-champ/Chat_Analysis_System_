@@ -1,10 +1,12 @@
 import streamlit as st
+import matplotlib.pyplot as plt
 import Chat_Analysis
 import helper
-import matplotlib.pyplot as plt
+
+st.set_page_config(page_title="Chat Analysis System", layout="wide")
 
 st.sidebar.title("User")
-uploaded_file = st.sidebar.file_uploader("Choose the file")
+uploaded_file = st.sidebar.file_uploader("Choose a chat file", type=["txt"])
 
 if uploaded_file is not None:
     bytes_data = uploaded_file.getvalue()
@@ -19,102 +21,86 @@ if uploaded_file is not None:
     user_list.sort()
     user_list.insert(0, "Overall")
 
-    selected_user = st.sidebar.selectbox("Members name", user_list)
+    selected_user = st.sidebar.selectbox("Select User", user_list)
 
     if st.sidebar.button("Show Analysis"):
-        st.title("Chat Analysis System")
+        st.title("📊 Chat Analysis System")
 
-        num_messages, words, number_of_media_messages, links = helper.fetch_stats(
-            selected_user, df
-        )
+        # ------------------- Stats -------------------
+        num_messages, words, media_msgs, links = helper.fetch_stats(selected_user, df)
 
         col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Total Messages", num_messages)
+        col2.metric("Total Words", words)
+        col3.metric("Media Shared", media_msgs)
+        col4.metric("Links Shared", links)
 
-        with col1:
-            st.header("Total Messages")
-            st.title(num_messages)
-
-        with col2:
-            st.header("Total Words")
-            st.title(words)
-
-        with col3:
-            st.header("Media Shared")
-            st.title(number_of_media_messages)
-
-        with col4:
-            st.header("Total Links Shared")
-            st.title(links)
-
-        # Monthly Activity
-        st.title("Monthly Activity")
-        monthly_timeline = helper.monthly_timelines(selected_user, df)
+        # ------------------- Monthly Activity -------------------
+        st.subheader("Monthly Activity")
+        monthly = helper.monthly_timelines(selected_user, df)
         fig, ax = plt.subplots()
-        ax.plot(monthly_timeline["time"], monthly_timeline["message"], color="green")
+        ax.plot(monthly["time"], monthly["message"])
         plt.xticks(rotation=90)
         st.pyplot(fig)
 
-        # Daily Activity
-        st.title("Activity Dates")
-        date_timeline = helper.dates_timelines(selected_user, df)
+        # ------------------- Daily Activity -------------------
+        st.subheader("Daily Activity")
+        daily = helper.dates_timelines(selected_user, df)
         fig, ax = plt.subplots()
-        ax.plot(date_timeline["only_dates"], date_timeline["message"], color="green")
+        ax.plot(daily["only_dates"], daily["message"])
         plt.xticks(rotation=90)
         st.pyplot(fig)
 
-        # Weekly Activity
-        st.title("Activity Days")
-        day_timeline = helper.day_timelines(selected_user, df)
+        # ------------------- Weekly Activity -------------------
+        st.subheader("Weekly Activity")
+        weekly = helper.day_timelines(selected_user, df)
         fig, ax = plt.subplots()
-        ax.bar(day_timeline["day_name"], day_timeline["message"], color="green")
-        plt.xticks(rotation=90)
+        ax.bar(weekly["day_name"], weekly["message"])
+        plt.xticks(rotation=45)
         st.pyplot(fig)
 
-        # Yearly Activity
-        st.title("Activity Year")
-        year_timeline = helper.year_timelines(selected_user, df)
+        # ------------------- Yearly Activity -------------------
+        st.subheader("Yearly Activity")
+        yearly = helper.year_timelines(selected_user, df)
         fig, ax = plt.subplots()
-        ax.bar(year_timeline["year"], year_timeline["message"], color="green")
-        plt.xticks(rotation=90)
+        ax.bar(yearly["year"], yearly["message"])
         st.pyplot(fig)
 
-    # Overall User Analysis
-    if selected_user == "Overall":
-        st.title("Most Active Users")
-        x, per = helper.chart(df)
+        # ------------------- Overall Analysis -------------------
+        if selected_user == "Overall":
+            st.subheader("Most Active Users")
+            x, per = helper.chart(df)
 
-        col5, col6 = st.columns(2)
+            col5, col6 = st.columns(2)
 
-        with col5:
+            with col5:
+                fig, ax = plt.subplots()
+                ax.bar(x.index, x.values)
+                plt.xticks(rotation=90)
+                st.pyplot(fig)
+
+            with col6:
+                st.dataframe(per)
+
+        # ------------------- Word Cloud -------------------
+        st.subheader("Word Cloud")
+        wc = helper.workcloud(selected_user, df)
+        fig, ax = plt.subplots()
+        ax.imshow(wc)
+        ax.axis("off")
+        st.pyplot(fig)
+
+        # ------------------- Emoji Analysis -------------------
+        st.subheader("Emoji Analysis")
+        emoji_df = helper.emojies(selected_user, df)
+
+        col7, col8 = st.columns(2)
+
+        with col7:
+            st.dataframe(emoji_df)
+
+        with col8:
             fig, ax = plt.subplots()
-            ax.bar(x.index, x.values, color="green")
-            plt.xticks(rotation=90)
+            ax.bar(emoji_df["Emoji"], emoji_df["Count"])
+            plt.xticks(rotation=45)
             st.pyplot(fig)
-
-        with col6:
-            st.dataframe(per)
-
-    # Word Cloud
-    st.title("Word Cloud")
-    wc = helper.workcloud(selected_user, df)
-    fig, ax = plt.subplots()
-    ax.imshow(wc)
-    ax.axis("off")
-    st.pyplot(fig)
-
-    # Emoji Analysis
-    st.title("Emojis Used")
-    emoji_df = helper.emojies(selected_user, df)
-
-    col7, col8 = st.columns(2)
-
-    with col7:
-        st.dataframe(emoji_df)
-
-    with col8:
-        fig, ax = plt.subplots()
-        ax.bar(emoji_df["Emoji"], emoji_df["Count"], color="green")
-        ax.set_xlabel("Emoji")
-        ax.set_ylabel("Count")
-        ax.set_title("Emoji Frequency")
-        st.pyplot(fig)
