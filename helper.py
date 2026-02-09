@@ -12,6 +12,9 @@ def fetch_stats(selected_user, df):
     if selected_user != "Overall":
         df = df[df["user"] == selected_user]
 
+    # Force message column to string (CRITICAL FIX)
+    df["message"] = df["message"].astype(str)
+
     num_messages = df.shape[0]
 
     words = []
@@ -21,7 +24,9 @@ def fetch_stats(selected_user, df):
         words.extend(message.split())
         links.extend(extractor.find_urls(message))
 
-    media_messages = df[df["message"].str.contains("<Media omitted>", na=False)].shape[0]
+    media_messages = df[
+        df["message"].str.contains("<Media omitted>", na=False)
+    ].shape[0]
 
     return num_messages, len(words), media_messages, len(links)
 
@@ -45,8 +50,9 @@ def workcloud(selected_user, df):
     if selected_user != "Overall":
         df = df[df["user"] == selected_user]
 
-    temp = df[df["message"].notna()]
-    temp = temp[~temp["message"].str.contains("<Media omitted>", na=False)]
+    df["message"] = df["message"].astype(str)
+
+    temp = df[~df["message"].str.contains("<Media omitted>", na=False)]
 
     text = " ".join(temp["message"])
 
@@ -68,17 +74,16 @@ def emojies(selected_user, df):
     if selected_user != "Overall":
         df = df[df["user"] == selected_user]
 
-    emojis = []
+    df["message"] = df["message"].astype(str)
 
+    emojis = []
     for message in df["message"]:
         emojis.extend([char for char in message if char in emoji.EMOJI_DATA])
 
-    emoji_df = pd.DataFrame(
+    return pd.DataFrame(
         Counter(emojis).most_common(),
         columns=["Emoji", "Count"]
     )
-
-    return emoji_df
 
 
 # -------------------- MONTHLY TIMELINE --------------------
@@ -114,7 +119,9 @@ def day_timelines(selected_user, df):
     order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 
     day_df = df.groupby("day_name")["message"].count().reset_index()
-    day_df["day_name"] = pd.Categorical(day_df["day_name"], categories=order, ordered=True)
+    day_df["day_name"] = pd.Categorical(
+        day_df["day_name"], categories=order, ordered=True
+    )
 
     return day_df.sort_values("day_name")
 
